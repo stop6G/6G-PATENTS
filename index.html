@@ -213,7 +213,7 @@
             document.getElementById('stat-total').innerText = globalData.length.toLocaleString();
         }
 
-        function renderGrid(filter = "") {
+function renderGrid(filter = "") {
             const container = document.getElementById('grid-container');
             container.innerHTML = "";
             
@@ -226,12 +226,18 @@
 
             if (filtered.length === 0) {
                 document.getElementById('no-data').classList.remove('hidden');
+                // Update stats to show 0 if no results found
+                document.getElementById('stat-total').innerText = "0"; 
                 return;
             }
             document.getElementById('no-data').classList.add('hidden');
+            
+            // Update the counter to show how many matched the search
+            document.getElementById('stat-total').innerText = filtered.length.toLocaleString();
 
-            // Render limit 100
-            filtered.slice(0, 100).forEach(item => {
+            // --- CHANGED: REMOVED .slice(0, 100) LIMIT ---
+            // Now renders EVERYTHING found (all 261+)
+            filtered.forEach(item => {
                 const card = createCard(item);
                 container.appendChild(card);
             });
