@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>6G Patents Watch</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f8fafc; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Utility for Masonry Layout */
+        .break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
+        
+        /* Smooth fade in */
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-white text-slate-600 font-sans selection:bg-pink-100 min-h-screen">
+
+    <div id="app" class="max-w-7xl mx-auto px-6 py-12">
+        <div id="loading" class="min-h-[50vh] flex flex-col items-center justify-center text-slate-900">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 mb-4"></div>
+            <p class="text-slate-400 font-light tracking-widest text-xs uppercase">Scanning Patent Database</p>
+        </div>
+
+        <div id="main-content" class="hidden fade-in">
+            
+            <header class="mb-12 border-b border-slate-100 pb-8">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                    <div class="flex-1">
+                        <h1 class="text-4xl font-extralight tracking-tight text-slate-900 mb-4 flex items-baseline gap-2 flex-wrap">
+                            <span class="text-6xl font-bold">6G</span> : <span class="font-bold text-pink-500">PATENTS WATCH</span>
+                        </h1>
+                        <p class="text-slate-500 text-sm leading-relaxed max-w-3xl">
+                            Monitoring the legal ownership of the post-human infrastructure. 
+                            <span class="block my-3 p-4 border-l-2 border-slate-900 bg-slate-50 italic text-slate-800">
+                                "Tracking the intellectual property claims on 6G, Sub-THz, and O-RAN technologies."
+                            </span>
+                            Data source: USPTO (via PatentsView) & EPO. <a href="https://stop6g.eu" target="_blank" rel="noopener noreferrer" class="text-slate-900 font-medium hover:underline underline-offset-2">stop6g.eu</a>
+                        </p>
+                    </div>
+                    
+                    <div class="flex items-end gap-8 flex-shrink-0">
+                       <div class="flex gap-8 text-sm">
+                          <div class="text-right">
+                              <p class="text-slate-400 uppercase text-xs tracking-wider">Patents</p>
+                              <p id="stat-total" class="text-2xl font-light text-pink-500">0</p>
+                          </div>
+                          <div class="text-right">
+                              <p class="text-slate-400 uppercase text-xs tracking-wider">Last Update</p>
+                              <p id="stat-update" class="text-xl font-light text-pink-500 whitespace-nowrap">N/A</p>
+                          </div>
+                       </div>
+                       
+                       <button onclick="downloadCSV()" class="group flex items-center justify-center w-10 h-10 bg-white hover:bg-slate-50 rounded-full transition-all duration-300 border border-slate-200 hover:border-slate-400 text-slate-400 hover:text-slate-900" title="Download CSV">
+                         <i class="ph ph-download-simple text-lg"></i>
+                       </button>
+                    </div>
+                </div>
+
+                <div class="mt-8 relative max-w-md">
+                    <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                    <input 
+                        type="text" 
+                        id="search-input"
+                        placeholder="Search assignee, title, or keywords..." 
+                        class="w-full bg-white border border-slate-200 rounded-full py-2 pl-10 pr-4 text-sm text-slate-800 focus:outline-none focus:border-slate-400 transition-colors placeholder:text-slate-300"
+                    />
+                </div>
+            </header>
+
+            <div id="error-container" class="hidden mb-12 bg-red-50 border border-red-100 p-6 rounded-lg">
+                <div class="flex items-start gap-4 mb-4">
+                    <i class="ph ph-warning-circle text-red-800 text-2xl"></i>
+                    <div>
+                        <h3 class="text-red-900 font-medium">Auto-fetch failed</h3>
+                        <p class="text-red-700 text-sm mt-1">
+                            GitHub sometimes blocks direct automated requests (CORS) when running locally. 
+                            Please paste the CSV content below.
+                        </p>
+                        <a href="https://raw.githubusercontent.com/stop6G/6G-PATENTS/refs/heads/main/6g_patents_usa.csv" target="_blank" class="inline-flex items-center gap-2 text-slate-900 hover:underline text-sm mt-2">
+                           <i class="ph ph-file-text"></i> Open CSV in new tab
+                        </a>
+                    </div>
+                </div>
+                <textarea id="manual-input" class="w-full h-48 bg-white border border-slate-200 rounded p-4 font-mono text-xs text-slate-600 focus:outline-none focus:border-slate-400 transition-colors" placeholder="Paste CSV content here..."></textarea>
+                <button onclick="handleManualSubmit()" class="mt-4 px-6 py-2 bg-slate-900 hover:bg-black text-white text-sm font-medium rounded transition-colors">Visualize Data</button>
+            </div>
+
+            <div id="no-data" class="hidden flex flex-col items-center justify-center py-20 border border-dashed border-slate-200 rounded-xl">
+                <i class="ph ph-database text-slate-300 text-5xl mb-4"></i>
+                <h3 class="text-xl text-slate-400 font-medium">No Patents Found</h3>
+            </div>
+
+            <div id="grid-container" class="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6 pb-12">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        // Pointing to your USA CSV. Change this to the European one if you prefer.
+        const CSV_URL = "https://raw.githubusercontent.com/stop6G/6G-PATENTS/refs/heads/main/6g_patents_usa.csv";
+        let globalData = [];
+
+        // --- Init ---
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchData();
+            
+            // Search Listener
+            document.getElementById('search-input').addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                renderGrid(term);
+            });
+        });
+
+        // --- Data Fetching ---
+        async function fetchData() {
+            try {
+                const response = await fetch(CSV_URL);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const text = await response.text();
+                processData(text);
+            } catch (e) {
+                console.error("Fetch error:", e);
+                showErrorState();
+            }
+        }
+
+        function handleManualSubmit() {
+            const text = document.getElementById('manual-input').value;
+            if(text) processData(text);
+        }
+
+        // --- CSV Parsing ---
+        function parseCSV(text) {
+            const rows = [];
+            let currentRow = [];
+            let currentField = '';
+            let inQuote = false;
+            
+            const cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+            for (let i = 0; i < cleanText.length; i++) {
+                const char = cleanText[i];
+                const nextChar = cleanText[i + 1];
+
+                if (char === '"') {
+                    if (inQuote && nextChar === '"') {
+                        currentField += '"';
+                        i++; 
+                    } else {
+                        inQuote = !inQuote;
+                    }
+                } else if (char === ',' && !inQuote) {
+                    currentRow.push(currentField.trim());
+                    currentField = '';
+                } else if (char === '\n' && !inQuote) {
+                    currentRow.push(currentField.trim());
+                    if (currentRow.length > 1 || (currentRow.length === 1 && currentRow[0] !== '')) {
+                        rows.push(currentRow);
+                    }
+                    currentRow = [];
+                    currentField = '';
+                } else {
+                    currentField += char;
+                }
+            }
+            if (currentField || currentRow.length > 0) {
+                currentRow.push(currentField.trim());
+                rows.push(currentRow);
+            }
+
+            if (rows.length < 2) return [];
+
+            const headers = rows[0].map(h => h.replace(/^"|"$/g, '').toLowerCase());
+            
+            const data = [];
+            for (let i = 1; i < rows.length; i++) {
+                const rowValues = rows[i];
+                if (rowValues.length === 0) continue;
+
+                const entry = {};
+                headers.forEach((header, index) => {
+                    let value = rowValues[index];
+                    entry[header] = value;
+                });
+                data.push(entry);
+            }
+            return data;
+        }
+
+        function processData(csvText) {
+            try {
+                const rawData = parseCSV(csvText);
+                
+                // Sort by Date Descending
+                rawData.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                globalData = rawData;
+                
+                if (globalData.length > 0) {
+                    updateStats();
+                    renderGrid();
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('error-container').classList.add('hidden');
+                    document.getElementById('main-content').classList.remove('hidden');
+                } else {
+                    showNoData();
+                }
+
+            } catch (err) {
+                console.error(err);
+                showErrorState();
+            }
+        }
+
+        // --- UI Rendering ---
+        
+        function updateStats() {
+            document.getElementById('stat-total').innerText = globalData.length;
+
+            let latestDate = null;
+            if(globalData.length > 0) {
+                 // Use "scraped_at" if available, otherwise "date" of newest patent
+                const dateStr = globalData[0].scraped_at || globalData[0].date;
+                if(dateStr) latestDate = new Date(dateStr);
+            }
+            document.getElementById('stat-update').innerText = formatDate(latestDate);
+        }
+
+        function formatDate(dateObj) {
+            if (!dateObj || isNaN(dateObj.getTime())) return 'N/A';
+            return new Intl.DateTimeFormat('en-US', {
+                month: 'short', day: 'numeric', year: 'numeric'
+            }).format(dateObj);
+        }
+
+        function renderGrid(filterTerm = "") {
+            const container = document.getElementById('grid-container');
+            container.innerHTML = "";
+
+            const filtered = globalData.filter(item => {
+                const term = filterTerm.toLowerCase();
+                const title = (item.title || "").toLowerCase();
+                const abstract = (item.abstract || "").toLowerCase();
+                const assignee = (item.assignee || "").toLowerCase();
+                return title.includes(term) || abstract.includes(term) || assignee.includes(term);
+            });
+
+            if (filtered.length === 0) {
+                document.getElementById('no-data').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('no-data').classList.add('hidden');
+
+            // Limit to top 100 for performance if list is huge
+            const displaySet = filtered.slice(0, 100);
+
+            displaySet.forEach((item, index) => {
+                const card = createCard(item, index);
+                container.appendChild(card);
+            });
+        }
+
+        function createCard(item, index) {
+            const div = document.createElement('div');
+            div.className = "break-inside-avoid bg-white border border-slate-200 hover:border-slate-300 rounded-lg p-6 transition-all duration-300 group mb-6 shadow-sm hover:shadow-md";
+            
+            const abstractText = item.abstract || "No abstract available.";
+            const isLong = abstractText.length > 350;
+            const assignee = item.assignee || "Unknown Assignee";
+            const title = item.title || "Untitled Patent";
+            const id = item.patent_id || "";
+            const source = item.source || "US";
+            const date = item.date || "";
+
+            // Link Logic: Use 'link' col if exists, else construct US link
+            let linkUrl = item.link;
+            if (!linkUrl && source.includes("USPTO")) {
+                linkUrl = `https://patents.google.com/patent/US${id}/en`;
+            } else if (!linkUrl && id.startsWith("EP")) {
+                 linkUrl = `https://worldwide.espacenet.com/publicationDetails/biblio?FT=D&CC=EP&NR=${id.replace("EP","")}`;
+            }
+
+            // Safe HTML
+            const safeAbstract = abstractText.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            const shortAbstract = isLong ? safeAbstract.slice(0, 350) + "..." : safeAbstract;
+
+            div.innerHTML = `
+                <div class="flex justify-between items-start mb-3">
+                    <span class="text-[10px] font-bold tracking-wider uppercase bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200">
+                        ${source}
+                    </span>
+                    <a href="${linkUrl}" target="_blank" class="text-slate-400 hover:text-pink-500 transition-colors">
+                        <i class="ph ph-arrow-square-out text-lg"></i>
+                    </a>
+                </div>
+
+                <div class="mb-4">
+                     <h2 class="text-lg font-bold text-slate-900 leading-tight mb-1">${title}</h2>
+                     <div class="flex items-center gap-2 text-pink-600 font-medium text-xs mt-2">
+                        <i class="ph ph-buildings"></i>
+                        <span>${assignee}</span>
+                     </div>
+                </div>
+
+                <div class="relative">
+                    <div id="text-${index}" class="text-slate-600 text-sm leading-relaxed font-normal text-justify">
+                        ${shortAbstract}
+                    </div>
+                    ${isLong ? `
+                        <button onclick="toggleText(this, ${index})" class="mt-2 text-xs font-bold text-slate-900 hover:underline decoration-1 flex items-center gap-1 focus:outline-none select-none">
+                            <span>Read more</span> <i class="ph ph-caret-down"></i>
+                        </button>
+                        <textarea id="full-${index}" class="hidden">${safeAbstract}</textarea>
+                        <textarea id="short-${index}" class="hidden">${shortAbstract}</textarea>
+                    ` : ''}
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-slate-50 flex items-center justify-between gap-4 text-xs text-slate-400 font-mono">
+                    <div class="flex items-center gap-1.5" title="Publication Date">
+                        <i class="ph ph-calendar text-slate-300"></i>
+                        <span>${date}</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <i class="ph ph-hash text-slate-300"></i>
+                        <span>${id}</span>
+                    </div>
+                </div>
+            `;
+            return div;
+        }
+
+        // --- Interaction Logic ---
+        function toggleText(btn, index) {
+            const textDiv = document.getElementById(`text-${index}`);
+            const fullText = document.getElementById(`full-${index}`).value;
+            const shortText = document.getElementById(`short-${index}`).value;
+            const icon = btn.querySelector('i');
+            const span = btn.querySelector('span');
+
+            if (span.innerText === "Read more") {
+                textDiv.innerHTML = fullText;
+                span.innerText = "Show less";
+                icon.classList.replace('ph-caret-down', 'ph-caret-up');
+            } else {
+                textDiv.innerHTML = shortText;
+                span.innerText = "Read more";
+                icon.classList.replace('ph-caret-up', 'ph-caret-down');
+            }
+        }
+
+        function downloadCSV() {
+            if (!globalData || globalData.length === 0) return;
+            const headers = Array.from(new Set(globalData.flatMap(Object.keys)));
+            const csvContent = [
+                headers.join(','),
+                ...globalData.map(row => headers.map(fieldName => {
+                    let val = row[fieldName] || ""; 
+                    if (typeof val === 'string') val = `"${val.replace(/"/g, '""')}"`; 
+                    return val;
+                }).join(','))
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', '6g_patents_data.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function showErrorState() {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+            document.getElementById('error-container').classList.remove('hidden');
+        }
+
+        function showNoData() {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+            document.getElementById('no-data').classList.remove('hidden');
+        }
+
+    </script>
+</body>
+</html>
