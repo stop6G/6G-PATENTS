@@ -2,8 +2,8 @@ name: Weekly USA Patent Scraper
 
 on:
   schedule:
-    # Runs at midnight every Sunday
-    - cron: '0 0 * * 0'
+    # Runs at midnight (00:00) UTC every single day
+    - cron: '0 0 * * *'
   # This line lets you run it manually by clicking a button
   workflow_dispatch: 
 
